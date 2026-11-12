@@ -1,0 +1,61 @@
+# XcodeGen project description. The Xcode project is generated from this file
+# (run `xcodegen generate`), so no .xcodeproj is ever edited by hand or committed.
+name: Handtone
+options:
+  bundleIdPrefix: com.handtone
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+packages:
+  GestureCore:
+    path: Core
+
+targets:
+  Handtone:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: GestureCore
+        product: GestureCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Handtone
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSCameraUsageDescription: "Handtone uses the camera to see your hands and face so you can play music and use filters. Video never leaves your iPhone."
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIRequiredDeviceCapabilities:
+          - arm64
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.handtone.app
+        PRODUCT_NAME: Handtone
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+        SWIFT_STRICT_CONCURRENCY: minimal
+
+schemes:
+  Handtone:
+    build:
+      targets:
+        Handtone: all
+    run:
+      config: Debug
+    archive:
+      config: Release
