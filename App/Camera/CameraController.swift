@@ -1,6 +1,6 @@
 import AVFoundation
+import CoreMotion
 import Foundation
-import UIKit
 
 /// Owns the capture session: camera selection, switching, and frame delivery.
 ///
@@ -40,16 +40,16 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     private var userOffset: CGFloat = 0
     private let infoLock = NSLock()
     private var appliedAngleInfo = "—"
-    /// The upright angle learned for each camera. Session queue only.
-    private var confirmedPortraitAngle: [AVCaptureDevice.Position: CGFloat] = [:]
-    /// Whether the phone is held upright (portrait). Guarded by `orientationLock`.
-    private let orientationLock = NSLock()
-    private var heldUpright = true
+    /// Reads gravity to tell whether the phone is physically upright. Unlike the screen
+    /// orientation, this is not fooled by the Portrait Orientation Lock.
+    private let motion = CMMotionManager()
+    private let motionQueue = OperationQueue()
+    private let gravityLock = NSLock()
+    private var gravity: CMAcceleration?
 
     override init() {
         super.init()
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        updateHeldUpright()
+        startGravityUpdates()
         let center = NotificationCenter.default
         observers.append(center.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
@@ -61,34 +61,49 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         ) { [weak self] _ in
             self?.restartAfterError()
         })
-        observers.append(center.addObserver(
-            forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.updateHeldUpright()
-        })
     }
 
-    /// Main thread. Face-up, face-down and unknown keep the previous answer.
-    private func updateHeldUpright() {
-        let upright: Bool?
-        switch UIDevice.current.orientation {
-        case .portrait: upright = true
-        case .landscapeLeft, .landscapeRight, .portraitUpsideDown: upright = false
-        default: upright = nil
+    private func startGravityUpdates() {
+        guard motion.isDeviceMotionAvailable else { return }
+        motionQueue.maxConcurrentOperationCount = 1
+        motion.deviceMotionUpdateInterval = 0.1
+        motion.startDeviceMotionUpdates(to: motionQueue) { [weak self] data, _ in
+            guard let self = self, let data = data else { return }
+            self.gravityLock.lock()
+            self.gravity = data.gravity
+            self.gravityLock.unlock()
         }
-        guard let value = upright else { return }
-        orientationLock.lock()
-        heldUpright = value
-        orientationLock.unlock()
     }
 
-    private var isHeldUpright: Bool {
-        orientationLock.lock()
-        defer { orientationLock.unlock() }
-        return heldUpright
+    /// true = held upright in portrait, false = clearly tilted or flat, nil = not known yet.
+    private var isHeldUpright: Bool? {
+        gravityLock.lock()
+        let current = gravity
+        gravityLock.unlock()
+        guard motion.isDeviceMotionAvailable else { return true }
+        guard let g = current else { return nil }
+        return g.y < -0.75 && abs(g.x) < 0.5
+    }
+
+    // The upright angle for each camera never changes on a given iPhone, so once learned
+    // it is saved and reused on every launch.
+    private static func storageKey(_ position: AVCaptureDevice.Position) -> String {
+        return position == .front ? "handtone.uprightAngle.front" : "handtone.uprightAngle.back"
+    }
+
+    private func storedUprightAngle(_ position: AVCaptureDevice.Position) -> CGFloat? {
+        guard let value = UserDefaults.standard.object(forKey: CameraController.storageKey(position)) as? Double else {
+            return nil
+        }
+        return CGFloat(value)
+    }
+
+    private func storeUprightAngle(_ angle: CGFloat, for position: AVCaptureDevice.Position) {
+        UserDefaults.standard.set(Double(angle), forKey: CameraController.storageKey(position))
     }
 
     deinit {
+        motion.stopDeviceMotionUpdates()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
@@ -228,27 +243,32 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     }
 
     /// Session queue. Learns the upright angle for this camera from Apple's rotation coordinator,
-    /// but only while the phone is held upright. The screen is always portrait, so when the phone
-    /// is tilted the picture must tilt with it rather than stay level with the horizon.
+    /// but only at moments when gravity says the phone is held upright. The screen is always
+    /// portrait, so when the phone is tilted the picture must tilt with it — like a plain camera —
+    /// rather than stay level with the horizon.
     private func setUpRotation(for device: AVCaptureDevice) {
         rotationObservation = nil
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         rotationCoordinator = coordinator
         let position = device.position
         let reading = coordinator.videoRotationAngleForHorizonLevelCapture
-        if isHeldUpright {
+        if isHeldUpright == true {
             baseAngle = reading
-            confirmedPortraitAngle[position] = reading
+            storeUprightAngle(reading, for: position)
+        } else if let stored = storedUprightAngle(position) {
+            baseAngle = stored
         } else {
-            baseAngle = confirmedPortraitAngle[position] ?? reading
+            // Nothing learned yet: best guess until the phone is held upright.
+            baseAngle = reading
         }
         rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture,
                                                   options: [.new]) { [weak self] coordinator, _ in
-            // Let the phone settle, then accept a new angle only if it is held upright.
+            // Let the phone settle, then learn the new angle only if it is held upright.
             self?.sessionQueue.asyncAfter(deadline: .now() + 0.4) {
-                guard let self = self, self.rotationCoordinator === coordinator, self.isHeldUpright else { return }
+                guard let self = self, self.rotationCoordinator === coordinator,
+                      self.isHeldUpright == true else { return }
                 let angle = coordinator.videoRotationAngleForHorizonLevelCapture
-                self.confirmedPortraitAngle[position] = angle
+                self.storeUprightAngle(angle, for: position)
                 guard self.baseAngle != angle else { return }
                 self.baseAngle = angle
                 self.applyOutputSettings()
