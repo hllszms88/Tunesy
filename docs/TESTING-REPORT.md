@@ -11,6 +11,7 @@ Date: 11 November 2026. Environment: Windows 11, no Swift toolchain, no WSL, no 
 - **17 Nov 2026, build 0c69ef0.** Reported: picture still sideways with the phone upright; Diagnostics not found. Since the displayed picture is now the tracked frames, the frames themselves are sideways: the fixed 90° rotation is wrong for this iPhone's front camera.
   - Change in the next build: rotation angle comes from `AVCaptureDevice.RotationCoordinator`; a "Rotate camera picture" button in Settings adds 90° steps as a manual fallback; Diagnostics shows the applied angle. Not yet tried on the device.
 - **17 Nov 2026, build f65a617.** Reported: camera picture upright with the phone held upright. (Earlier report of "90° mirrored" came from an older build installed by mistake; switching cameras briefly showed an upright picture there, consistent with 90° being the wrong angle for this front camera.) Not yet known whether the automatic angle or the manual Rotate button fixed it.
+- **17 Nov 2026, design request.** Developer asked for an all-white, cozy look (soft cream/blush palette), a new white icon, and the note names along the side in white. Implemented in the next build: cream/sand/blush/cocoa theme, serif display type, white frosted controls, white edge haze, note column on the left edge, new icon. Not yet seen on the device.
 
 ## Summary
 

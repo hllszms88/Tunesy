@@ -136,7 +136,7 @@ struct HelpSheet: View {
 
                     helpCard(
                         title: "Left hand picks the chord",
-                        color: Theme.mint,
+                        color: Theme.cocoa,
                         fingers: FingerState(index: true, middle: true),
                         thumbOnRight: true,
                         lines: [
@@ -147,7 +147,7 @@ struct HelpSheet: View {
 
                     helpCard(
                         title: "Right hand shapes the sound",
-                        color: Theme.coral,
+                        color: Theme.rose,
                         fingers: FingerState(thumb: true, index: true),
                         thumbOnRight: false,
                         lines: [
@@ -166,7 +166,7 @@ struct HelpSheet: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .background(Theme.cream, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 }
                 .padding(20)
             }
@@ -199,6 +199,6 @@ struct HelpSheet: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Theme.cream, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

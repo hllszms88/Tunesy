@@ -19,7 +19,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Theme.cream.ignoresSafeArea()
             switch model.cameraAccess {
             case .authorized:
                 experience
@@ -29,8 +29,8 @@ struct RootView: View {
                 PermissionView(denied: true)
             }
         }
-        .preferredColorScheme(.dark)
-        .tint(Theme.mint)
+        .preferredColorScheme(.light)
+        .tint(Theme.cocoa)
         .onAppear {
             if scenePhase == .active { model.activate() }
         }
@@ -71,13 +71,13 @@ struct RootView: View {
                     .ignoresSafeArea()
             }
 
-            // Darken the top and bottom edges so controls stay readable over any scene.
+            // A soft white haze at the top and bottom edges, behind the controls.
             VStack(spacing: 0) {
-                LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 140)
+                LinearGradient(colors: [Color.white.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 150)
                 Spacer()
-                LinearGradient(colors: [.clear, Color.black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 220)
+                LinearGradient(colors: [.clear, Color.white.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 200)
             }
             .ignoresSafeArea()
             .allowsHitTesting(false)
@@ -127,12 +127,12 @@ struct TabBar: View {
                 Text(title)
                     .font(Theme.label(14, weight: .bold))
             }
-            .foregroundStyle(selected ? Theme.ink : Color.white.opacity(0.85))
+            .foregroundStyle(selected ? Theme.cream : Theme.cocoaSoft)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background {
                 if selected {
-                    Capsule().fill(Theme.mint)
+                    Capsule().fill(Theme.cocoa)
                 }
             }
             .contentShape(Capsule())
@@ -141,7 +141,7 @@ struct TabBar: View {
     }
 }
 
-/// A soft, misty look for the camera picture: part frosted blur, a cool tint, and a light haze.
+/// A soft, misty look for the camera picture: part frosted blur, a warm cream tint, and a light haze.
 /// Display only — hand tracking always reads the untouched camera frames.
 struct SoftCameraOverlay: View {
     /// 0 = plain camera, 1 = fully misty.
@@ -152,12 +152,11 @@ struct SoftCameraOverlay: View {
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .opacity(0.35 * strength)
-            LinearGradient(colors: [Color(red: 0.40, green: 0.34, blue: 0.78),
-                                    Color(red: 0.08, green: 0.30, blue: 0.42)],
+            LinearGradient(colors: [Theme.cream, Theme.blush],
                            startPoint: .top, endPoint: .bottom)
-                .opacity(0.12 * strength)
+                .opacity(0.16 * strength)
             Color.white
-                .opacity(0.03 * strength)
+                .opacity(0.06 * strength)
         }
         .allowsHitTesting(false)
     }
@@ -170,27 +169,28 @@ struct PermissionView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Theme.ink, Color(red: 0.10, green: 0.08, blue: 0.22)],
+            LinearGradient(colors: [Color.white, Theme.cream, Theme.sand],
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            VStack(spacing: 22) {
+            VStack(spacing: 20) {
                 Spacer()
-                Image(systemName: "hand.raised.fingers.spread.fill")
-                    .font(.system(size: 76, weight: .regular))
-                    .foregroundStyle(LinearGradient(colors: [Theme.mint, Theme.violet],
+                Image(systemName: "hand.raised.fingers.spread")
+                    .font(.system(size: 72, weight: .light))
+                    .foregroundStyle(LinearGradient(colors: [Theme.rose, Theme.latte],
                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
                 Text("Handtone")
-                    .font(Theme.display(40))
+                    .font(Theme.display(42))
+                    .foregroundStyle(Theme.cocoa)
                 Text(denied
                      ? "Handtone needs the camera to see your hands. Turn on Camera for Handtone in Settings."
                      : "Play chords in the air. Handtone watches your hands through the camera and turns their shapes into music.")
                     .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.75))
+                    .foregroundStyle(Theme.cocoaSoft)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 34)
-                Label("Video never leaves your iPhone", systemImage: "lock.fill")
-                    .font(Theme.label(13))
-                    .foregroundStyle(Theme.mint)
+                Label("Video never leaves your iPhone", systemImage: "lock")
+                    .font(Theme.label(13, weight: .medium))
+                    .foregroundStyle(Theme.rose)
                 Spacer()
                 Button(denied ? "Open Settings" : "Allow Camera") {
                     if denied {

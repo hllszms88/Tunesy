@@ -1,28 +1,21 @@
 import SwiftUI
 
-/// Colours, type and small shared controls. One look for Play and Learn.
+/// "Cozy white": pearl white, cream, sand, blush and a soft cocoa for text.
+/// One look for Play and Learn.
 enum Theme {
-    static let mint = Color(red: 0.36, green: 0.95, blue: 0.78)
-    static let coral = Color(red: 1.0, green: 0.48, blue: 0.40)
-    static let violet = Color(red: 0.56, green: 0.49, blue: 1.0)
-    static let gold = Color(red: 1.0, green: 0.80, blue: 0.36)
-    static let ink = Color(red: 0.05, green: 0.06, blue: 0.09)
+    static let paper = Color.white
+    static let cream = Color(red: 0.984, green: 0.969, blue: 0.949)
+    static let sand = Color(red: 0.937, green: 0.902, blue: 0.863)
+    static let latte = Color(red: 0.851, green: 0.780, blue: 0.710)
+    static let blush = Color(red: 0.929, green: 0.812, blue: 0.788)
+    static let rose = Color(red: 0.851, green: 0.655, blue: 0.627)
+    static let sage = Color(red: 0.600, green: 0.670, blue: 0.565)
+    static let cocoa = Color(red: 0.357, green: 0.294, blue: 0.259)
+    static let cocoaSoft = Color(red: 0.549, green: 0.482, blue: 0.439)
 
-    /// One colour per scale degree, so a chord is recognisable at a glance.
-    static func degreeColor(_ degree: Int) -> Color {
-        switch degree {
-        case 1: return mint
-        case 2: return coral
-        case 3: return gold
-        case 4: return Color(red: 0.47, green: 0.82, blue: 1.0)
-        case 5: return Color(red: 1.0, green: 0.62, blue: 0.30)
-        case 6: return Color(red: 1.0, green: 0.42, blue: 0.62)
-        default: return violet
-        }
-    }
-
+    /// Large titles and chord names: an elegant serif.
     static func display(_ size: CGFloat) -> Font {
-        return .system(size: size, weight: .heavy, design: .rounded)
+        return .system(size: size, weight: .semibold, design: .serif)
     }
 
     static func label(_ size: CGFloat = 13, weight: Font.Weight = .semibold) -> Font {
@@ -31,14 +24,29 @@ enum Theme {
 }
 
 extension View {
-    /// Frosted panel used for every floating control.
+    /// Frosted white panel used for every floating control.
     func glassCard(cornerRadius: CGFloat = 22) -> some View {
         self
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.white.opacity(0.55))
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(0.9), lineWidth: 1)
             )
+            .shadow(color: Theme.cocoa.opacity(0.10), radius: 14, x: 0, y: 6)
+    }
+
+    /// White text that stays readable on top of the camera picture.
+    func onCameraText() -> some View {
+        self
+            .foregroundStyle(Color.white)
+            .shadow(color: Theme.cocoa.opacity(0.45), radius: 6, x: 0, y: 1)
     }
 }
 
@@ -46,69 +54,70 @@ extension View {
 struct IconButton: View {
     let systemName: String
     var isOn: Bool = false
-    var tint: Color = Theme.mint
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(isOn ? Theme.ink : Color.white)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(isOn ? Theme.cream : Theme.cocoa)
                 .frame(width: 44, height: 44)
                 .background {
                     if isOn {
-                        Circle().fill(tint)
+                        Circle().fill(Theme.cocoa)
                     } else {
-                        Circle().fill(.ultraThinMaterial)
+                        ZStack {
+                            Circle().fill(.ultraThinMaterial)
+                            Circle().fill(Color.white.opacity(0.55))
+                        }
                     }
                 }
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1))
+                .shadow(color: Theme.cocoa.opacity(0.10), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
 }
 
-/// Small frosted text pill.
+/// Small soft text pill.
 struct Pill: View {
     let text: String
-    var color: Color = .white
+    var color: Color = Theme.cocoaSoft
 
     var body: some View {
         Text(text)
-            .font(Theme.label(12, weight: .bold))
+            .font(Theme.label(12, weight: .semibold))
             .foregroundStyle(color)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(color.opacity(0.16), in: Capsule())
-            .overlay(Capsule().strokeBorder(color.opacity(0.5), lineWidth: 1))
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12), in: Capsule())
     }
 }
 
 /// Filled capsule button for primary actions.
 struct PrimaryButtonStyle: ButtonStyle {
-    var color: Color = Theme.mint
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Theme.label(16, weight: .bold))
-            .foregroundStyle(Theme.ink)
+            .font(Theme.label(16, weight: .semibold))
+            .foregroundStyle(Theme.cream)
             .padding(.horizontal, 22)
-            .padding(.vertical, 13)
+            .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(color.opacity(configuration.isPressed ? 0.75 : 1), in: Capsule())
+            .background(Theme.cocoa.opacity(configuration.isPressed ? 0.8 : 1), in: Capsule())
+            .shadow(color: Theme.cocoa.opacity(0.18), radius: 10, x: 0, y: 5)
     }
 }
 
-/// Outlined capsule button for secondary actions.
+/// Soft white capsule button for secondary actions.
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.label(14, weight: .semibold))
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 14)
+            .foregroundStyle(Theme.cocoa)
+            .padding(.horizontal, 12)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity)
-            .background(Color.white.opacity(configuration.isPressed ? 0.22 : 0.10), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            .background(Color.white.opacity(configuration.isPressed ? 0.6 : 0.85), in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.sand, lineWidth: 1))
     }
 }

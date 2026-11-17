@@ -51,7 +51,7 @@ struct HandShapeView: View {
     let fingers: FingerState
     /// Positive leans the hand to the right.
     var tiltDegrees: Double = 0
-    var color: Color = Theme.mint
+    var color: Color = Theme.cocoa
     /// True for the left hand as you see it in the mirror view (thumb toward the middle).
     var thumbOnRight: Bool = false
 
@@ -78,7 +78,7 @@ struct HandShapeView: View {
                     ctx.fill(bar, with: .color(color))
                 } else {
                     let stub = Path(roundedRect: CGRect(x: x - 6.5, y: 54, width: 13, height: 22), cornerRadius: 6.5)
-                    ctx.stroke(stub, with: .color(Color.white.opacity(0.4)), lineWidth: 1.5)
+                    ctx.stroke(stub, with: .color(Theme.cocoa.opacity(0.3)), lineWidth: 1.5)
                 }
             }
 
@@ -93,7 +93,7 @@ struct HandShapeView: View {
             if fingers.thumb {
                 ctx.fill(thumb, with: .color(color))
             } else {
-                ctx.stroke(thumb, with: .color(Color.white.opacity(0.4)), lineWidth: 1.5)
+                ctx.stroke(thumb, with: .color(Theme.cocoa.opacity(0.3)), lineWidth: 1.5)
             }
         }
         .accessibilityHidden(true)
