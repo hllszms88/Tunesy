@@ -1,7 +1,7 @@
 import GestureCore
 import SwiftUI
 
-/// Draws the tracked hands over the camera: mint for the chord hand, coral for the expression hand.
+/// Draws the tracked hands over the camera as clean white lines and fingertip dots.
 struct HandOverlay: View {
     @ObservedObject var live: LiveState
 
@@ -19,10 +19,8 @@ struct HandOverlay: View {
         Canvas { context, size in
             let frame = live.frame
             let map = AspectFill(image: frame.imageSize, view: size)
-            for (index, hand) in frame.hands.enumerated() where hand.count == 21 {
-                var color = Color.white
-                if frame.chordHand == index { color = Theme.mint }
-                if frame.expressionHand == index { color = Theme.coral }
+            for hand in frame.hands where hand.count == 21 {
+                let color = Color.white
                 let points = hand.map { map.point($0) }
 
                 var bones = Path()
@@ -32,7 +30,7 @@ struct HandOverlay: View {
                         bones.addLine(to: points[joint])
                     }
                 }
-                context.stroke(bones, with: .color(color.opacity(0.55)),
+                context.stroke(bones, with: .color(color.opacity(0.75)),
                                style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
 
                 for tip in HandOverlay.tips {

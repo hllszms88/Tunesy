@@ -72,6 +72,8 @@ struct PlayView: View {
         } label: {
             Text(title)
                 .font(Theme.label(13, weight: .bold))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(selected ? Theme.ink : Color.white.opacity(0.85))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
