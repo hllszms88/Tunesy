@@ -128,7 +128,7 @@ struct ChordDisplay: View {
     }
 }
 
-/// A glowing line along the bottom that ripples with whatever is sounding: its shape follows
+/// A glowing line along the bottom, shown only while something is sounding: its shape follows
 /// the notes of the chord (or the theremin pitch) and its height follows the volume.
 /// It is drawn from the instrument's state, not from the audio itself.
 struct WaveformView: View {
@@ -161,11 +161,13 @@ struct WaveformView: View {
                     if step == 0 { path.move(to: point) } else { path.addLine(to: point) }
                 }
                 context.addFilter(.shadow(color: Theme.rose.opacity(level > 0 ? 0.9 : 0), radius: 8))
-                context.stroke(path, with: .color(Color.white.opacity(level > 0 ? 0.95 : 0.35)),
+                context.stroke(path, with: .color(Color.white.opacity(0.95)),
                                style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
             }
         }
-        .animation(.easeOut(duration: 0.2), value: level)
+        // Hidden while nothing is playing; fades in with the first note.
+        .opacity(level > 0 ? 1 : 0)
+        .animation(.easeOut(duration: 0.25), value: level > 0)
     }
 
     /// Frequencies relative to the lowest note, so the wave keeps the chord's shape.
