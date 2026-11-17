@@ -16,6 +16,7 @@ private struct RenderState {
 final class AudioEngine {
     private let engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
+    private var tapInstalled = false
     private let state: UnsafeMutablePointer<RenderState>
     private var observers: [NSObjectProtocol] = []
     private var wantsToRun = false
@@ -37,6 +38,26 @@ final class AudioEngine {
         engine.stop()
         state.deinitialize(count: 1)
         state.deallocate()
+    }
+
+    /// The instrument's sound format (for recordings).
+    var outputFormat: AVAudioFormat? {
+        return sourceNode?.outputFormat(forBus: 0)
+    }
+
+    /// Main thread. Delivers the instrument's sound to `handler` for recording; nil stops it.
+    /// The tap runs on its own thread, never on the real-time audio thread.
+    func setRecordingTap(_ handler: ((AVAudioPCMBuffer, AVAudioTime) -> Void)?) {
+        guard let node = sourceNode else { return }
+        if tapInstalled {
+            node.removeTap(onBus: 0)
+            tapInstalled = false
+        }
+        guard let handler = handler else { return }
+        node.installTap(onBus: 0, bufferSize: 2048, format: nil) { buffer, time in
+            handler(buffer, time)
+        }
+        tapInstalled = true
     }
 
     /// Hands new parameters to the audio thread. Safe to call from any thread.
@@ -85,6 +106,10 @@ final class AudioEngine {
 
     private func rebuildGraph() throws {
         if let node = sourceNode {
+            if tapInstalled {
+                node.removeTap(onBus: 0)
+                tapInstalled = false
+            }
             engine.detach(node)
             sourceNode = nil
         }

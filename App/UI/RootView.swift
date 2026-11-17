@@ -73,7 +73,7 @@ struct RootView: View {
 
             switch model.tab {
             case .play:
-                PlayView(recorder: model.recorder)
+                PlayView(media: model.media)
             case .learn:
                 LearnView()
             }

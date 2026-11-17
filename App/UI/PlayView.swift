@@ -1,27 +1,18 @@
 import GestureCore
 import SwiftUI
 
-/// The instrument. Nothing is written on screen: chord names appear in the middle while you
-/// play. Settings and camera flip sit at the top; record and Learn at the bottom.
+/// The instrument. Nothing is written on screen: while you play, a calm wave appears above the
+/// capture button with the chord name in its middle. Settings and camera flip sit at the top.
 struct PlayView: View {
     @EnvironmentObject private var model: AppModel
-    @ObservedObject var recorder: ScreenRecorder
+    @ObservedObject var media: MediaRecorder
     @State private var showSettings = false
+    @State private var flash: Double = 0
 
     var body: some View {
         ZStack {
-            ChordDisplay(live: model.live, key: model.settings.key)
-
-            VStack {
-                Spacer()
-                WaveformView(live: model.live)
-                    .frame(height: 90)
-                    .padding(.bottom, 118)
-            }
-            .allowsHitTesting(false)
-
             VStack(spacing: 0) {
-                if !recorder.isRecording {
+                if !media.isRecording {
                     HStack(spacing: 6) {
                         Spacer()
                         IconButton(systemName: "gearshape") { showSettings = true }
@@ -31,12 +22,38 @@ struct PlayView: View {
                     .padding(.top, 4)
                     .transition(.opacity)
                 }
+                if let notice = media.notice {
+                    Text(notice)
+                        .font(Theme.label(13, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.white.opacity(0.9), in: Capsule())
+                        .padding(.top, 8)
+                        .transition(.opacity)
+                }
                 Spacer()
+                ChordWave(live: model.live, key: model.settings.key)
+                    .frame(height: 90)
+                    .padding(.bottom, 10)
                 bottomBar
                     .padding(.bottom, 18)
             }
+
+            // White flash when a photo is taken.
+            Color.white
+                .opacity(flash)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
-        .animation(.easeInOut(duration: 0.2), value: recorder.isRecording)
+        .animation(.easeInOut(duration: 0.2), value: media.isRecording)
+        .animation(.easeInOut(duration: 0.2), value: media.notice)
+        .onChange(of: media.photoCount) { _, _ in
+            flash = 0.8
+            withAnimation(.easeOut(duration: 0.35)) {
+                flash = 0
+            }
+        }
         .sheet(isPresented: $showSettings) {
             SettingsSheet()
                 .environmentObject(model)
@@ -46,9 +63,8 @@ struct PlayView: View {
     private var bottomBar: some View {
         HStack {
             Group {
-                if recorder.isRecording {
-                    // Fixed size: a bare Color.clear would fill the whole height and push the
-                    // record button to the middle of the screen.
+                if media.isRecording {
+                    // Fixed size, so the capture button stays at the bottom.
                     Color.clear.frame(width: 46, height: 46)
                 } else {
                     IconButton(systemName: "music.note.list") { model.tab = .learn }
@@ -56,9 +72,7 @@ struct PlayView: View {
             }
             .frame(width: 70)
             Spacer()
-            RecordButton(isRecording: recorder.isRecording, isBusy: recorder.isBusy) {
-                recorder.toggle()
-            }
+            CaptureButton(media: media)
             Spacer()
             Color.clear.frame(width: 70, height: 1)
         }
@@ -66,118 +80,138 @@ struct PlayView: View {
     }
 }
 
-/// Snapchat-style capture button: a white ring; a soft pink square while recording.
-struct RecordButton: View {
-    let isRecording: Bool
-    let isBusy: Bool
-    let action: () -> Void
+/// Snapchat-style capture: tap for a photo, hold for a video, slide right while holding to
+/// lock the video so it keeps going after you let go (tap again to stop).
+struct CaptureButton: View {
+    @ObservedObject var media: MediaRecorder
+
+    @State private var pressing = false
+    @State private var pressID = 0
+    @State private var pressBeganLocked = false
+    @State private var startedVideo = false
+    @State private var locked = false
+
+    private let holdDelay: UInt64 = 350_000_000
+    private let lockDistance: CGFloat = 60
 
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .strokeBorder(Color.white, lineWidth: 5)
-                    .frame(width: 78, height: 78)
-                    .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
-                RoundedRectangle(cornerRadius: isRecording ? 8 : 30, style: .continuous)
-                    .fill(isRecording ? Theme.rose : Color.white.opacity(0.18))
-                    .frame(width: isRecording ? 30 : 60, height: isRecording ? 30 : 60)
-            }
-            .opacity(isBusy ? 0.5 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isRecording)
+        ZStack {
+            Circle()
+                .strokeBorder(media.isRecording ? Theme.rose : Color.white, lineWidth: 5)
+                .frame(width: 78, height: 78)
+                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: media.isRecording ? 8 : 30, style: .continuous)
+                .fill(media.isRecording ? Theme.rose : Color.white.opacity(0.18))
+                .frame(width: media.isRecording ? 30 : 60, height: media.isRecording ? 30 : 60)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isRecording ? "Stop recording" : "Start recording")
+        .scaleEffect(pressing && !media.isRecording ? 0.92 : (media.isRecording && !locked ? 1.12 : 1))
+        .overlay(alignment: .trailing) {
+            // While holding a video, a lock appears to the right: slide onto it to lock.
+            Image(systemName: locked ? "lock.fill" : "lock.open")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .shadow(color: Color.black.opacity(0.35), radius: 4, x: 0, y: 1)
+                .offset(x: 72)
+                .opacity(startedVideo && (pressing || locked) ? 1 : 0)
+        }
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if !pressing {
+                        pressing = true
+                        pressBeganLocked = locked && media.isRecording
+                        pressID += 1
+                        let id = pressID
+                        if !pressBeganLocked {
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: holdDelay)
+                                if pressing && pressID == id && !media.isRecording {
+                                    startedVideo = true
+                                    media.startVideo()
+                                }
+                            }
+                        }
+                    }
+                    if startedVideo && !locked && value.translation.width > lockDistance {
+                        locked = true
+                    }
+                }
+                .onEnded { _ in
+                    pressing = false
+                    if pressBeganLocked {
+                        finishVideo()
+                    } else if startedVideo {
+                        if !locked { finishVideo() }
+                    } else {
+                        media.takePhoto()
+                    }
+                }
+        )
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: media.isRecording)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: pressing)
+        .animation(.easeOut(duration: 0.2), value: locked)
+        .onChange(of: media.isRecording) { _, recording in
+            if !recording {
+                startedVideo = false
+                locked = false
+            }
+        }
+        .accessibilityLabel(media.isRecording ? "Stop recording" : "Take a photo, or hold to record a video")
+    }
+
+    private func finishVideo() {
+        media.stopVideo()
+        startedVideo = false
+        locked = false
     }
 }
 
-/// The chord (or theremin pitch) being played, in the middle of the screen.
-/// Nothing is shown while you are not playing.
-struct ChordDisplay: View {
+/// While something is playing: a calm white wave at a fixed rhythm with the chord name in its
+/// middle. Hidden while silent.
+struct ChordWave: View {
     @ObservedObject var live: LiveState
     let key: MusicalKey
 
     var body: some View {
-        let state = live.frame.instrument
-        let text = label(for: state)
+        let label = live.frame.instrument.displayLabel(key: key)
         ZStack {
-            if let text = text {
-                Text(text)
-                    .font(Theme.display(84))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.5)
+            if let label = label {
+                TimelineView(.animation) { timeline in
+                    Canvas { context, size in
+                        let time = timeline.date.timeIntervalSinceReferenceDate
+                        let font = WaveStyle.uiFont(size: WaveStyle.fontSize)
+                        let textWidth = (label as NSString).size(withAttributes: [.font: font]).width
+                        let rect = CGRect(origin: .zero, size: size)
+                        let path = Path(WaveStyle.path(in: rect, gap: textWidth + WaveStyle.gapPadding, time: time))
+                        context.addFilter(.shadow(color: Theme.rose.opacity(0.9), radius: 8))
+                        context.stroke(path, with: .color(Color.white.opacity(0.95)),
+                                       style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    }
+                }
+                .transition(.opacity)
+
+                Text(label)
+                    .font(Font(WaveStyle.uiFont(size: WaveStyle.fontSize)))
                     .lineLimit(1)
                     .onCameraText()
-                    .id(text)
+                    .id(label)
                     .transition(.opacity.combined(with: .scale(scale: 0.92)))
             }
         }
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.18), value: text)
-    }
-
-    private func label(for state: InstrumentState) -> String? {
-        switch state.mode {
-        case .chords:
-            return state.chord?.name(key: key)
-        case .theremin:
-            return state.thereminGain > 0 ? "\(Int(state.pitchHz.rounded())) Hz" : nil
-        }
+        .animation(.easeOut(duration: 0.2), value: label)
     }
 }
 
-/// A glowing line along the bottom, shown only while something is sounding: its shape follows
-/// the notes of the chord (or the theremin pitch) and its height follows the volume.
-/// It is drawn from the instrument's state, not from the audio itself.
-struct WaveformView: View {
-    @ObservedObject var live: LiveState
-
-    var body: some View {
-        let state = live.frame.instrument
-        let ratios = WaveformView.ratios(for: state)
-        let level = state.isSounding ? CGFloat(max(0.15, min(1, state.mode == .chords
-                                                               ? state.volume : state.thereminGain / 0.55)))
-                                     : 0
-        TimelineView(.animation) { timeline in
-            Canvas { context, size in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                let mid = size.height / 2
-                let amplitude = (size.height / 2 - 4) * level
-                var path = Path()
-                let steps = Int(size.width / 3)
-                for step in 0...steps {
-                    let x = CGFloat(step) / CGFloat(steps)
-                    // Fade the ends so the line melts into the screen edges.
-                    let envelope = sin(x * .pi)
-                    var y: CGFloat = 0
-                    for (index, ratio) in ratios.enumerated() {
-                        let phase = time * (2.2 + Double(index) * 0.35)
-                        y += CGFloat(sin(Double(x) * 2 * .pi * 2.5 * Double(ratio) - phase))
-                    }
-                    if !ratios.isEmpty { y /= CGFloat(ratios.count) }
-                    let point = CGPoint(x: x * size.width, y: mid - y * amplitude * envelope)
-                    if step == 0 { path.move(to: point) } else { path.addLine(to: point) }
-                }
-                context.addFilter(.shadow(color: Theme.rose.opacity(level > 0 ? 0.9 : 0), radius: 8))
-                context.stroke(path, with: .color(Color.white.opacity(0.95)),
-                               style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-            }
-        }
-        // Hidden while nothing is playing; fades in with the first note.
-        .opacity(level > 0 ? 1 : 0)
-        .animation(.easeOut(duration: 0.25), value: level > 0)
-    }
-
-    /// Frequencies relative to the lowest note, so the wave keeps the chord's shape.
-    private static func ratios(for state: InstrumentState) -> [Float] {
-        switch state.mode {
+extension InstrumentState {
+    /// What the screen and recordings show: the chord name, or the theremin pitch; nil when silent.
+    func displayLabel(key: MusicalKey) -> String? {
+        switch mode {
         case .chords:
-            guard let lowest = state.frequencies.min(), lowest > 0 else { return [1] }
-            return state.frequencies.map { $0 / lowest }
+            return chord?.name(key: key)
         case .theremin:
-            return [max(0.5, min(4, state.pitchHz / 220))]
+            return thereminGain > 0 ? "\(Int(pitchHz.rounded())) Hz" : nil
         }
     }
 }

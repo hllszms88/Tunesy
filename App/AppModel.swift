@@ -40,7 +40,7 @@ final class AppModel: ObservableObject {
     let audio: AudioEngine
     let pipeline: FramePipeline
     let progress = ProgressStore()
-    let recorder = ScreenRecorder()
+    let media = MediaRecorder()
     let songs: [Song]
 
     private var isActive = false
@@ -74,9 +74,12 @@ final class AppModel: ObservableObject {
         camera.onError = { [weak self] text in
             self?.message = text
         }
-        recorder.onError = { [weak self] text in
+        media.onError = { [weak self] text in
             self?.message = text
         }
+        media.audioFormat = { [weak audio] in audio?.outputFormat }
+        media.setAudioTap = { [weak audio] handler in audio?.setRecordingTap(handler) }
+        pipeline.media = media
         pipeline.onSnapshot = { [weak self] snapshot in
             self?.receive(snapshot)
         }
@@ -103,7 +106,7 @@ final class AppModel: ObservableObject {
     func deactivate() {
         isActive = false
         UIApplication.shared.isIdleTimerDisabled = false
-        recorder.stop()
+        media.stopVideo()
         syncPipeline()
         camera.stop()
         audio.stop()
@@ -172,6 +175,7 @@ final class AppModel: ObservableObject {
             target.engine = settings.engineConfig
             target.voice = settings.voice
             target.masterGain = settings.outputGain
+            target.showDots = settings.showSkeleton
         }
     }
 

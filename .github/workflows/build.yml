@@ -61,6 +61,10 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           grep -E "error:|fatal error" xcodebuild.log | sort -u | head -80 >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # Also publish each error as an annotation, readable from the public API.
+          grep -E "error:" xcodebuild.log | sed -E 's|^.*/App/|App/|; s|^.*/Core/|Core/|' | sort -u | head -40 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
 
       - name: Upload build log
         if: always()

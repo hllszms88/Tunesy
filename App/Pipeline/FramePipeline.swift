@@ -18,6 +18,7 @@ final class FramePipeline {
         var engine = InstrumentConfig()
         var voice = SynthVoice.all[0]
         var masterGain: Float = 0.8
+        var showDots = true
     }
 
     /// What the UI needs to draw one frame.
@@ -36,6 +37,8 @@ final class FramePipeline {
     var onSnapshot: ((Snapshot) -> Void)?
 
     private let audio: AudioEngine
+    /// Photos and videos. Set once before the camera starts.
+    var media: MediaRecorder?
     private let queue: DispatchQueue
 
     private let lock = NSLock()
@@ -170,6 +173,12 @@ final class FramePipeline {
         }
 
         audio.set(params)
+        if current.activity == .play, let media = media {
+            let overlay = RecordingOverlay(hands: snapshot.hands,
+                                           label: snapshot.instrument.displayLabel(key: engine.config.key),
+                                           showDots: current.showDots)
+            media.consume(pixelBuffer, time: time, overlay: overlay)
+        }
         deliver(snapshot)
     }
 
