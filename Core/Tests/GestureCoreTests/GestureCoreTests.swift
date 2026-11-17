@@ -355,3 +355,99 @@ final class SynthTests: XCTestCase {
         XCTAssertEqual(last, 0.5, accuracy: 0.02)
     }
 }
+
+final class ChordTransitionTests: XCTestCase {
+    private let horns = GestureReader.fingers(forDegree: 6)
+    private let one = GestureReader.fingers(forDegree: 1)
+    private let three = GestureReader.fingers(forDegree: 3)
+    private let rightHand = FingerState(index: true)
+    private let dt = 1.0 / 30.0
+
+    private func play(_ engine: inout InstrumentEngine, at time: Double,
+                      _ fingers: FingerState, lean: Float) -> InstrumentState {
+        return engine.process(SyntheticHand.frame(time: time, chord: fingers, chordLean: lean,
+                                                  expression: rightHand))
+    }
+
+    /// Bm → D: the fingers change first and the wrist straightens a moment later.
+    /// D minor must never sound in between.
+    func testMinorToMajorDoesNotFlashMinor() {
+        var engine = InstrumentEngine()
+        engine.config.key = .d
+        var names: [String] = []
+        var t = 0.0
+        while t < 0.6 {
+            names.append(play(&engine, at: t, horns, lean: 25).chord?.name(key: .d) ?? "-")
+            t += dt
+        }
+        XCTAssertEqual(names.last, "Bm")
+
+        let change = t
+        while t < change + 0.1 {
+            names.append(play(&engine, at: t, one, lean: 25).chord?.name(key: .d) ?? "-")
+            t += dt
+        }
+        let turn = t
+        while t < turn + 0.2 {
+            let lean = 25 - 25 * Float((t - turn) / 0.2)
+            names.append(play(&engine, at: t, one, lean: lean).chord?.name(key: .d) ?? "-")
+            t += dt
+        }
+        while t < turn + 0.8 {
+            names.append(play(&engine, at: t, one, lean: 0).chord?.name(key: .d) ?? "-")
+            t += dt
+        }
+        XCTAssertFalse(names.contains("Dm"), "\(names)")
+        XCTAssertEqual(names.last, "D")
+    }
+
+    /// Bm → F♯m with the hand kept leaning: a deliberate minor-to-minor change still works.
+    func testMinorToMinorStillWorks() {
+        var engine = InstrumentEngine()
+        engine.config.key = .d
+        var t = 0.0
+        var last = InstrumentState()
+        while t < 0.6 {
+            last = play(&engine, at: t, horns, lean: 25)
+            t += dt
+        }
+        let change = t
+        while t < change + 0.6 {
+            last = play(&engine, at: t, three, lean: 25)
+            t += dt
+        }
+        XCTAssertEqual(last.chord?.name(key: .d), "F♯m")
+    }
+
+    /// Slowly leaning a held chord turns it minor.
+    func testSlowLeanMakesMinor() {
+        var engine = InstrumentEngine()
+        engine.config.key = .d
+        var t = 0.0
+        var last = InstrumentState()
+        while t < 1.2 {
+            let lean = Float(min(1, t / 0.6)) * 25
+            last = play(&engine, at: t, one, lean: lean)
+            t += dt
+        }
+        XCTAssertEqual(last.chord?.name(key: .d), "Dm")
+    }
+
+    /// A steady minor chord with tracking jitter (±3°) must not flicker to major.
+    func testJitterDoesNotDropMinor() {
+        var engine = InstrumentEngine()
+        var seed: UInt32 = 12_345
+        var t = 0.0
+        var majorFrames = 0
+        while t < 3.0 {
+            seed = seed &* 1_664_525 &+ 1_013_904_223
+            let noise = (Float(seed >> 8) / Float(1 << 24) - 0.5) * 6
+            let state = play(&engine, at: t, horns, lean: 24 + noise)
+            if t > 0.5, let chord = state.chord, chord.isMajor {
+                majorFrames += 1
+            }
+            t += dt
+        }
+        XCTAssertEqual(majorFrames, 0)
+    }
+}

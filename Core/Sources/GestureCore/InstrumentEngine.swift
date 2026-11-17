@@ -33,6 +33,13 @@ public struct InstrumentConfig: Equatable, Sendable {
 
     /// A gesture must hold this long before it changes the chord.
     public var stableTime: Double = 0.10
+    /// When the fingers change while the hand is still leaning from the previous minor chord,
+    /// the new chord must stay minor this long before it sounds. Gives the wrist time to
+    /// straighten, so Bm → D does not flash Dm on the way.
+    public var carriedMinorTime: Double = 0.30
+    /// Straightening the chord hand faster than this (degrees per second) switches back
+    /// to major at once, before the lean drops under `minorOffDegrees`.
+    public var minorReturnSpeed: Float = 60
     /// The chord hand may vanish this long before the chord is dropped.
     public var dropoutTolerance: Double = 0.12
     /// The expression hand may vanish this long before the sound is cut.
@@ -126,6 +133,13 @@ public struct InstrumentEngine: Sendable {
 
     private var debouncer = GestureDebouncer()
     private var minorLatched = false
+    /// The chord (scale degree) that was being played when minor was switched on.
+    private var latchDegree: Int?
+    private var leanFilter = OneEuroFilter(minCutoff: 3.0, beta: 0.05)
+    private var lastLean: Float?
+    private var lastLeanTime: Double = 0
+    /// Smoothed lean speed in degrees per second; negative = straightening toward upright.
+    private var leanVelocity: Float = 0
 
     private var volumeFilter = OneEuroFilter(minCutoff: 2.0, beta: 0.4)
     private var toneFilter = OneEuroFilter(minCutoff: 1.5, beta: 0.3)
@@ -143,6 +157,8 @@ public struct InstrumentEngine: Sendable {
     public mutating func reset() {
         debouncer.reset()
         minorLatched = false
+        latchDegree = nil
+        resetLean()
         volumeFilter.reset()
         toneFilter.reset()
         secondHeightFilter.reset()
@@ -188,26 +204,43 @@ public struct InstrumentEngine: Sendable {
         switch config.mode {
         case .chords:
             var raw: ChordGesture?
-            if let reading = chordReading, let degree = GestureReader.degree(for: reading.fingers) {
-                if minorLatched {
-                    if reading.leanDegrees < config.minorOffDegrees { minorLatched = false }
-                } else if reading.leanDegrees > config.minorOnDegrees {
-                    minorLatched = true
+            var carriedMinor = false
+            if let reading = chordReading {
+                let lean = trackLean(reading.leanDegrees, time: time)
+                if let degree = GestureReader.degree(for: reading.fingers) {
+                    if minorLatched {
+                        if lean < config.minorOffDegrees || leanVelocity < -config.minorReturnSpeed {
+                            minorLatched = false
+                            latchDegree = nil
+                        }
+                    } else if lean > config.minorOnDegrees && leanVelocity > -config.minorReturnSpeed / 3 {
+                        minorLatched = true
+                        latchDegree = degree
+                    }
+                    let tiltDecides = lessonMode || config.modeControl == .tilt
+                    let isMajor: Bool
+                    if tiltDecides {
+                        isMajor = !minorLatched
+                        carriedMinor = minorLatched && latchDegree != degree
+                    } else {
+                        isMajor = config.modeControl == .major
+                    }
+                    let lockedQuality = lessonMode ? nil : config.fixedQuality
+                    let quality = lockedQuality ?? (expression?.fingers.fingerCount ?? 0)
+                    raw = ChordGesture(degree: degree, isMajor: isMajor, quality: quality,
+                                       thumbOut: expression?.fingers.thumb ?? false)
                 }
-                let isMajor: Bool
-                if !lessonMode && config.modeControl != .tilt {
-                    isMajor = config.modeControl == .major
-                } else {
-                    isMajor = !minorLatched
-                }
-                let lockedQuality = lessonMode ? nil : config.fixedQuality
-                let quality = lockedQuality ?? (expression?.fingers.fingerCount ?? 0)
-                raw = ChordGesture(degree: degree, isMajor: isMajor, quality: quality,
-                                   thumbOut: expression?.fingers.thumb ?? false)
+            } else {
+                resetLean()
             }
 
-            let gesture = debouncer.update(raw, time: time, stableTime: config.stableTime,
+            let gesture = debouncer.update(raw, time: time,
+                                           stableTime: carriedMinor ? config.carriedMinorTime : config.stableTime,
                                            dropoutTolerance: config.dropoutTolerance)
+            if carriedMinor, let raw = raw, gesture == raw {
+                // The new minor chord has been held long enough: it is deliberate.
+                latchDegree = raw.degree
+            }
             state.gesture = gesture
             state.tone = expression?.tone ?? 0
 
@@ -240,6 +273,26 @@ public struct InstrumentEngine: Sendable {
             }
         }
         return state
+    }
+
+    /// Smooths the chord hand's lean and keeps a running estimate of how fast it is changing.
+    private mutating func trackLean(_ raw: Float, time: Double) -> Float {
+        let lean = leanFilter.filter(raw, time: time)
+        if let previous = lastLean, time > lastLeanTime {
+            let dt = time - lastLeanTime
+            let instant = (lean - previous) / Float(dt)
+            let blend = Float(1 - exp(-dt / 0.08))
+            leanVelocity += (instant - leanVelocity) * blend
+        }
+        lastLean = lean
+        lastLeanTime = time
+        return lean
+    }
+
+    private mutating func resetLean() {
+        leanFilter.reset()
+        lastLean = nil
+        leanVelocity = 0
     }
 
     private func mapTone(_ lean: Float) -> Float {
