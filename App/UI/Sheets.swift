@@ -67,8 +67,22 @@ struct SettingsSheet: View {
                     Text("Height is always volume and leaning is always tone. Unless locked, 1–4 fingers pick the chord shape and the thumb drops an octave. Lessons ignore these locks.")
                 }
 
-                Section("Display") {
+                Section {
                     Toggle("Show hand tracking", isOn: $model.settings.showSkeleton)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Soft camera")
+                        HStack {
+                            Image(systemName: "camera")
+                                .foregroundStyle(.secondary)
+                            Slider(value: $model.settings.softCamera, in: 0...1)
+                            Image(systemName: "cloud.fog")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Display")
+                } footer: {
+                    Text("Soft camera gives the picture a misty, gentler look. It does not affect hand tracking.")
                 }
 
                 Section {
@@ -76,6 +90,8 @@ struct SettingsSheet: View {
                     LabeledContent("Audio buffer",
                                    value: String(format: "%.1f ms", model.audio.bufferDuration * 1000))
                     LabeledContent("Sample rate", value: "\(Int(model.audio.sampleRate)) Hz")
+                    LabeledContent("Camera frame", value: "\(Int(model.live.frame.imageSize.width))×\(Int(model.live.frame.imageSize.height))")
+                    LabeledContent("Preview rotation", value: model.camera.previewRotationDescription)
                 } header: {
                     Text("Diagnostics")
                 } footer: {

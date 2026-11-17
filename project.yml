@@ -27,7 +27,7 @@ targets:
         CFBundleDisplayName: Handtone
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
-        NSCameraUsageDescription: "Handtone uses the camera to see your hands and face so you can play music and use filters. Video never leaves your iPhone."
+        NSCameraUsageDescription: "Handtone uses the camera to see your hands so you can play music. Video never leaves your iPhone."
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:

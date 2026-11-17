@@ -1,6 +1,6 @@
 # Handtone — notes for the coding agent
 
-Native iPhone app: camera hand tracking → chords and theremin (Play), song lessons (Learn), camera effects (Filters). Swift, SwiftUI, AVFoundation, Vision, AVAudioEngine, Core Image. No third-party dependencies. No network.
+Native iPhone app: camera hand tracking → chords and theremin (Play) and song lessons (Learn). Swift, SwiftUI, AVFoundation, Vision, AVAudioEngine. No third-party dependencies. No network.
 
 The developer works on Windows with no Mac. You cannot run the app; only GitHub Actions can compile it and only the developer's iPhone can run it.
 
@@ -21,7 +21,8 @@ The developer works on Windows with no Mac. You cannot run the app; only GitHub 
 - `FramePipeline`'s engine and lesson state are touched only on the camera's video queue.
 - New gesture, timing or music behaviour goes in `Core/` with a unit test. Thresholds live in `GestureTuning` / `InstrumentConfig`, not as literals.
 - Gesture logic uses the player's point of view; the pipeline mirrors rear-camera coordinates before the engine sees them. Overlays use display coordinates.
-- Tracking always reads the original pixel buffer; filters affect only what is displayed.
+- Tracking always reads the original pixel buffer; display effects (Soft camera) are SwiftUI overlays only.
+- The Filters feature was removed at the developer's request (17 Nov 2026). Do not reintroduce it unless asked.
 - The app target uses Swift 5 language mode with minimal concurrency checking, on purpose.
 - Keep the bundle identifier stable (free Apple IDs have a weekly identifier limit).
 - Never ask for or store Apple ID credentials or signing keys in the repository.

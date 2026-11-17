@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Colours, type and small shared controls. One look for Play, Learn and Filters.
+/// Colours, type and small shared controls. One look for Play and Learn.
 enum Theme {
     static let mint = Color(red: 0.36, green: 0.95, blue: 0.78)
     static let coral = Color(red: 1.0, green: 0.48, blue: 0.40)

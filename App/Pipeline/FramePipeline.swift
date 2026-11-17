@@ -9,7 +9,7 @@ import GestureCore
 /// Sound never waits for the main thread: synth parameters go straight to the audio engine.
 final class FramePipeline {
     enum Activity: Equatable {
-        case idle, play, lesson, filters
+        case idle, play, lesson
     }
 
     /// What the UI wants the pipeline to do. Copied in under a lock.
@@ -18,7 +18,6 @@ final class FramePipeline {
         var engine = InstrumentConfig()
         var voice = SynthVoice.all[0]
         var masterGain: Float = 0.8
-        var filter: CameraFilter = .original
     }
 
     /// What the UI needs to draw one frame.
@@ -29,12 +28,10 @@ final class FramePipeline {
         var expressionHand: Int?
         var instrument = InstrumentState()
         var lesson: LessonSnapshot?
-        var face: FacePose?
         var imageSize = CGSize(width: 720, height: 1280)
         var framesPerSecond: Double = 0
     }
 
-    let filterStore = FilteredFrameStore()
     /// Called on the main queue, at most once per frame.
     var onSnapshot: ((Snapshot) -> Void)?
 
@@ -48,8 +45,6 @@ final class FramePipeline {
 
     // Used only on the video queue.
     private let handTracker = HandTracker()
-    private let faceTracker = FaceTracker()
-    private let colorRenderer = ColorFilterRenderer()
     private var engine = InstrumentEngine()
     private var lesson: LessonEngine?
     private var params = SynthParams()
@@ -122,12 +117,9 @@ final class FramePipeline {
         snapshot.framesPerSecond = smoothedFPS
 
         if current.activity != lastActivity {
-            // Never carry a sounding note or a stale filter across screens.
+            // Never carry a sounding note across screens.
             engine.reset()
             lastActivity = current.activity
-            if current.activity != .filters {
-                filterStore.set(nil)
-            }
         }
 
         params.setVoice(current.voice)
@@ -175,18 +167,6 @@ final class FramePipeline {
             snapshot.instrument = state
             snapshot.chordHand = state.chordHandIndex
             snapshot.expressionHand = state.expressionHandIndex
-
-        case .filters:
-            params.apply(InstrumentState())
-            switch current.filter.kind {
-            case .face:
-                snapshot.face = faceTracker.detect(in: pixelBuffer)
-                filterStore.set(nil)
-            case .color:
-                filterStore.set(colorRenderer.render(current.filter, pixelBuffer: pixelBuffer, time: time))
-            case .none:
-                filterStore.set(nil)
-            }
         }
 
         audio.set(params)

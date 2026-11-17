@@ -2,6 +2,11 @@
 
 Date: 11 November 2026. Environment: Windows 11, no Swift toolchain, no WSL, no Docker, no Mac, no iPhone attached, no GitHub credentials.
 
+## Device feedback log
+
+- **17 Nov 2026, first install (build 98da421).** Built and installed via Sideloadly. Reported: camera picture sideways; camera colours unattractive, a softer/misty look preferred; filters judged too poor to keep.
+  - Changes in the next build: preview orientation re-applied on every layout pass and when the session starts, with a one-time repair if frames arrive sideways; Settings → Diagnostics now shows camera frame size and preview rotation; new "Soft camera" setting (on by default); Filters tab, face tracking, colour effects and favourites removed. None of this has been tried on the device yet.
+
 ## Summary
 
 **No Swift code in this repository has been compiled or run.** Every feature below is "implemented, not verified" unless stated otherwise. The first cloud build is expected to surface compile errors, and the first device run is expected to surface behaviour that needs tuning.
@@ -36,10 +41,6 @@ Legend — **Written**: code exists, never compiled. **Needs device**: can only 
 | Audio engine, latency | Written · needs device | Latency has not been measured. |
 | Lesson progression, correct/incorrect feedback | Written | Engine covered by unit tests once they run; screen needs device. |
 | Lesson progress persistence | Written · needs device | |
-| Face tracking | Written · needs device | |
-| Face accessories (5) | Written · needs device | Artwork is drawn in code and has never been seen rendered; expect to adjust sizes and positions. |
-| Colour filters (6) | Written · needs device | The Metal preview may appear vertically flipped; there is a one-line switch for that (`MetalFilterView.flipVertically`). |
-| Favourites persistence | Written · needs device | |
 | App lifecycle (background, interruptions, route changes) | Written · needs device | |
 | Signed build / install on iPhone | Blocked | Needs your Apple ID and your iPhone (BUILD-AND-INSTALL.md §4). |
 | TestFlight / App Store | Blocked | Needs the paid Apple Developer Program. No upload job exists yet. |
@@ -51,7 +52,6 @@ Legend — **Written**: code exists, never compiled. **Needs device**: can only 
 3. **Lean direction.** "Lean right = minor" and "lean = brighter tone" are defined from the player's view and may feel reversed.
 4. **Gesture thresholds.** Finger-raised ratio (1.12), thumb reach (0.55), minor angle (14°/8°), tone range (8°–40°) and lesson hold time (0.55 s) are starting values in `GestureTuning`, `InstrumentConfig` and `LessonEngine`.
 5. **Performance.** Vision hand tracking speed on your iPhone model is unknown. The Settings sheet shows tracking fps. Camera runs at the default 30 fps; 60 fps was not configured.
-6. **Face filter look.** Drawn blind. Proportions assume typical face geometry relative to eye distance.
 7. **Rear camera in Play/Learn.** Hand roles are mirrored for the rear camera so the *player's* left hand stays the chord hand. Untested.
 
 ## Device checklist for the first working build
@@ -84,12 +84,6 @@ Report each as pass/fail. Settings → Diagnostics shows fps, audio buffer and s
 19. Skip chord, Repeat part and Restart behave as named; finishing shows the completion card.
 20. After leaving, the song's progress ring in the list reflects the result, and survives quitting the app.
 
-**Filters**
-21. Each face filter follows the face (position, size, head tilt). Puppy shows a tongue when the mouth opens.
-22. Each colour filter shows correctly oriented video. Four Tone glides through four colours.
-23. Switching filters is immediate; the ✕ button returns to the plain camera.
-24. The heart saves a filter; it appears under Favourites and survives quitting the app.
-
 **Lifecycle**
 25. Switching tabs never leaves a note sounding.
 26. Backgrounding and returning restores camera and sound.
@@ -99,7 +93,6 @@ Report each as pass/fail. Settings → Diagnostics shows fps, audio buffer and s
 ## Not built
 
 - Metronome in lessons, loop recorder, video recording and song sharing from the reference site.
-- Photo/video capture in Filters.
 - 60 fps camera configuration.
 - A signed-build or TestFlight upload job.
 - xtool configuration for local Windows builds.

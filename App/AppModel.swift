@@ -13,7 +13,7 @@ final class LiveState: ObservableObject {
 /// The app's single source of truth. Used from the main thread.
 final class AppModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case play, learn, filters
+        case play, learn
         var id: String { rawValue }
     }
 
@@ -29,7 +29,6 @@ final class AppModel: ObservableObject {
             syncPipeline()
         }
     }
-    @Published var filter: CameraFilter = .original { didSet { syncPipeline() } }
     @Published private(set) var activeSong: Song?
     @Published private(set) var cameraAccess: CameraAccess = .unknown
     @Published private(set) var isFrontCamera = true
@@ -39,12 +38,10 @@ final class AppModel: ObservableObject {
     let camera: CameraController
     let audio: AudioEngine
     let pipeline: FramePipeline
-    let favorites = FavoritesStore()
     let progress = ProgressStore()
     let songs: [Song]
 
     private var isActive = false
-    private var smoothedFace: FacePose?
 
     init() {
         let camera = CameraController()
@@ -159,30 +156,18 @@ final class AppModel: ObservableObject {
             switch tab {
             case .play: activity = .play
             case .learn: activity = activeSong == nil ? .idle : .lesson
-            case .filters: activity = .filters
             }
         }
         let settings = self.settings
-        let filter = self.filter
         pipeline.update { target in
             target.activity = activity
             target.engine = settings.engineConfig
             target.voice = settings.voice
             target.masterGain = settings.outputGain
-            target.filter = filter
         }
     }
 
     private func receive(_ snapshot: FramePipeline.Snapshot) {
-        var snapshot = snapshot
-        // Ease face accessories toward the newest position so they do not jitter.
-        if let face = snapshot.face {
-            let eased = smoothedFace?.blended(toward: face, amount: 0.55) ?? face
-            smoothedFace = eased
-            snapshot.face = eased
-        } else {
-            smoothedFace = nil
-        }
         live.frame = snapshot
 
         if let lesson = snapshot.lesson, lesson.total > 0 {

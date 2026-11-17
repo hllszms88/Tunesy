@@ -78,7 +78,7 @@ A four-track loop recorder with a beat grid, video recording of performances, mi
 | Server-hosted song library | Seven built-in lessons (traditional melodies and original pieces, original chord charts), extensible by JSON |
 | Metronome in lessons | Not included |
 | Loop recorder, recording, sharing | Not included |
-| — | Filters tab (new; not part of the reference) |
+| — | Filters tab: built, then removed on 17 Nov 2026 at the developer's request |
 
 ## Assumptions to confirm on a device
 

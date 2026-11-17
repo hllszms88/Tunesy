@@ -25,6 +25,10 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     private var shouldRun = false
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private var observers: [NSObjectProtocol] = []
+    /// Main thread only: whether the preview should be mirrored.
+    private var previewIsFront = true
+    /// Video queue only: set once we have tried to re-rotate sideways frames.
+    private var rotationRepairRequested = false
 
     override init() {
         super.init()
@@ -38,6 +42,12 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
             forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil
         ) { [weak self] _ in
             self?.restartAfterError()
+        })
+        // The preview layer's connection may only exist once the session runs; orient it then.
+        observers.append(center.addObserver(
+            forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main
+        ) { [weak self] _ in
+            self?.applyPreviewRotation()
         })
     }
 
@@ -101,6 +111,9 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
             }
             self.applyOutputSettings()
             self.session.commitConfiguration()
+            self.videoQueue.async { [weak self] in
+                self?.rotationRepairRequested = false
+            }
             self.applyPreviewSettings(front: self.position == .front)
             self.notifyPosition()
         }
@@ -162,18 +175,37 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
 
     private func applyPreviewSettings(front: Bool) {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, let connection = self.previewLayer?.connection else { return }
-            self.configure(connection, front: front)
+            guard let self = self else { return }
+            self.previewIsFront = front
+            self.applyPreviewRotation()
         }
     }
 
+    /// Main thread. Safe to call often (it is called on every layout pass):
+    /// it only changes the connection when something is wrong.
+    func applyPreviewRotation() {
+        guard let connection = previewLayer?.connection else { return }
+        configure(connection, front: previewIsFront)
+    }
+
+    /// Main thread. Shown in Settings → Diagnostics.
+    var previewRotationDescription: String {
+        guard let connection = previewLayer?.connection else { return "not connected" }
+        return "\(Int(connection.videoRotationAngle))°" + (connection.isVideoMirrored ? " · mirrored" : "")
+    }
+
     private func configure(_ connection: AVCaptureConnection, front: Bool) {
-        if connection.isVideoRotationAngleSupported(90) {
+        // 90° = portrait for both cameras.
+        if connection.isVideoRotationAngleSupported(90), connection.videoRotationAngle != 90 {
             connection.videoRotationAngle = 90
         }
         if connection.isVideoMirroringSupported {
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.isVideoMirrored = front
+            if connection.automaticallyAdjustsVideoMirroring {
+                connection.automaticallyAdjustsVideoMirroring = false
+            }
+            if connection.isVideoMirrored != front {
+                connection.isVideoMirrored = front
+            }
         }
     }
 
@@ -202,6 +234,15 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        // The UI is portrait-only, so frames must be taller than wide. If they are not,
+        // the rotation did not take effect: apply it again once.
+        if !rotationRepairRequested,
+           CVPixelBufferGetWidth(pixelBuffer) > CVPixelBufferGetHeight(pixelBuffer) {
+            rotationRepairRequested = true
+            sessionQueue.async { [weak self] in
+                self?.applyOutputSettings()
+            }
+        }
         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
         onFrame?(pixelBuffer, time, connection.isVideoMirrored)
     }

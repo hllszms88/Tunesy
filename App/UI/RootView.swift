@@ -12,7 +12,7 @@ struct HandtoneApp: App {
     }
 }
 
-/// The whole app: one camera surface, three experiences layered on top of it.
+/// The whole app: one camera surface with Play and Learn layered on top of it.
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
@@ -62,12 +62,8 @@ struct RootView: View {
             CameraPreview(camera: model.camera)
                 .ignoresSafeArea()
 
-            if model.tab == .filters && model.filter.kind == .color {
-                FilteredPreview(store: model.pipeline.filterStore)
-                    .ignoresSafeArea()
-            }
-            if model.tab == .filters && model.filter.kind == .face {
-                FaceAccessoryLayer(live: model.live, filter: model.filter)
+            if model.settings.softCamera > 0.01 {
+                SoftCameraOverlay(strength: Double(model.settings.softCamera))
                     .ignoresSafeArea()
             }
             if showsHands && model.settings.showSkeleton {
@@ -91,8 +87,6 @@ struct RootView: View {
                 PlayView()
             case .learn:
                 LearnView()
-            case .filters:
-                FiltersView()
             }
 
             if model.activeSong == nil {
@@ -106,7 +100,7 @@ struct RootView: View {
     }
 }
 
-/// Floating three-way switch between the experiences.
+/// Floating switch between Play and Learn.
 struct TabBar: View {
     @EnvironmentObject private var model: AppModel
 
@@ -114,11 +108,10 @@ struct TabBar: View {
         HStack(spacing: 4) {
             item(.play, title: "Play", symbol: "hand.raised.fill")
             item(.learn, title: "Learn", symbol: "music.note.list")
-            item(.filters, title: "Filters", symbol: "camera.filters")
         }
         .padding(5)
         .glassCard(cornerRadius: 30)
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 60)
     }
 
     private func item(_ tab: AppModel.Tab, title: String, symbol: String) -> some View {
@@ -145,6 +138,28 @@ struct TabBar: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A soft, misty look for the camera picture: part frosted blur, a cool tint, and a light haze.
+/// Display only — hand tracking always reads the untouched camera frames.
+struct SoftCameraOverlay: View {
+    /// 0 = plain camera, 1 = fully misty.
+    let strength: Double
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.65 * strength)
+            LinearGradient(colors: [Color(red: 0.40, green: 0.34, blue: 0.78),
+                                    Color(red: 0.08, green: 0.30, blue: 0.42)],
+                           startPoint: .top, endPoint: .bottom)
+                .opacity(0.18 * strength)
+            Color.white
+                .opacity(0.05 * strength)
+        }
+        .allowsHitTesting(false)
     }
 }
 
