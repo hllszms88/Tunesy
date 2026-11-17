@@ -40,6 +40,7 @@ final class AppModel: ObservableObject {
     let audio: AudioEngine
     let pipeline: FramePipeline
     let progress = ProgressStore()
+    let recorder = ScreenRecorder()
     let songs: [Song]
 
     private var isActive = false
@@ -73,6 +74,9 @@ final class AppModel: ObservableObject {
         camera.onError = { [weak self] text in
             self?.message = text
         }
+        recorder.onError = { [weak self] text in
+            self?.message = text
+        }
         pipeline.onSnapshot = { [weak self] snapshot in
             self?.receive(snapshot)
         }
@@ -99,6 +103,7 @@ final class AppModel: ObservableObject {
     func deactivate() {
         isActive = false
         UIApplication.shared.isIdleTimerDisabled = false
+        recorder.stop()
         syncPipeline()
         camera.stop()
         audio.stop()

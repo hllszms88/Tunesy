@@ -30,7 +30,7 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(.light)
-        .tint(Theme.cocoa)
+        .tint(Theme.ink)
         .onAppear {
             if scenePhase == .active { model.activate() }
         }
@@ -71,73 +71,13 @@ struct RootView: View {
                     .ignoresSafeArea()
             }
 
-            // A soft white haze at the top and bottom edges, behind the controls.
-            VStack(spacing: 0) {
-                LinearGradient(colors: [Color.white.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 150)
-                Spacer()
-                LinearGradient(colors: [.clear, Color.white.opacity(0.55)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 200)
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
             switch model.tab {
             case .play:
-                PlayView()
+                PlayView(recorder: model.recorder)
             case .learn:
                 LearnView()
             }
-
-            if model.activeSong == nil {
-                VStack {
-                    Spacer()
-                    TabBar()
-                        .padding(.bottom, 6)
-                }
-            }
         }
-    }
-}
-
-/// Floating switch between Play and Learn.
-struct TabBar: View {
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        HStack(spacing: 4) {
-            item(.play, title: "Play", symbol: "hand.raised.fill")
-            item(.learn, title: "Learn", symbol: "music.note.list")
-        }
-        .padding(5)
-        .glassCard(cornerRadius: 30)
-        .padding(.horizontal, 60)
-    }
-
-    private func item(_ tab: AppModel.Tab, title: String, symbol: String) -> some View {
-        let selected = model.tab == tab
-        return Button {
-            withAnimation(.snappy(duration: 0.25)) {
-                model.tab = tab
-            }
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .semibold))
-                Text(title)
-                    .font(Theme.label(14, weight: .bold))
-            }
-            .foregroundStyle(selected ? Theme.cream : Theme.cocoaSoft)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background {
-                if selected {
-                    Capsule().fill(Theme.cocoa)
-                }
-            }
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -180,12 +120,12 @@ struct PermissionView: View {
                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
                 Text("Handtone")
                     .font(Theme.display(42))
-                    .foregroundStyle(Theme.cocoa)
+                    .foregroundStyle(Theme.ink)
                 Text(denied
                      ? "Handtone needs the camera to see your hands. Turn on Camera for Handtone in Settings."
                      : "Play chords in the air. Handtone watches your hands through the camera and turns their shapes into music.")
                     .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .foregroundStyle(Theme.cocoaSoft)
+                    .foregroundStyle(Theme.inkSoft)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 34)
                 Label("Video never leaves your iPhone", systemImage: "lock")

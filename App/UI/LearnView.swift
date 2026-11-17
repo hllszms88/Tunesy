@@ -25,15 +25,27 @@ struct SongListView: View {
             Theme.cream.opacity(0.88).ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            model.tab = .play
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Theme.ink)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Back to playing")
+                    }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Learn Songs")
                             .font(Theme.display(36))
-                            .foregroundStyle(Theme.cocoa)
+                            .foregroundStyle(Theme.ink)
                         Text("Follow the hand shapes. Hold each chord until it clicks.")
                             .font(.system(size: 15, design: .rounded))
-                            .foregroundStyle(Theme.cocoaSoft)
+                            .foregroundStyle(Theme.inkSoft)
                     }
-                    .padding(.top, 12)
                     .padding(.bottom, 6)
 
                     ForEach(model.songs) { song in
@@ -90,14 +102,14 @@ struct SongCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(song.title)
                     .font(Theme.display(19))
-                    .foregroundStyle(Theme.cocoa)
+                    .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.leading)
                 Text(song.credit)
                     .font(Theme.label(12, weight: .medium))
-                    .foregroundStyle(Theme.cocoaSoft)
+                    .foregroundStyle(Theme.inkSoft)
                 Text(song.blurb)
                     .font(.system(size: 13, design: .rounded))
-                    .foregroundStyle(Theme.cocoa.opacity(0.8))
+                    .foregroundStyle(Theme.ink.opacity(0.8))
                     .multilineTextAlignment(.leading)
                 HStack(spacing: 6) {
                     Pill(text: levelText, color: levelColor)
@@ -153,11 +165,11 @@ struct LessonView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.title)
                         .font(Theme.display(18))
-                        .foregroundStyle(Theme.cocoa)
+                        .foregroundStyle(Theme.ink)
                         .lineLimit(1)
                     Text(positionText(snapshot))
                         .font(Theme.label(12, weight: .medium))
-                        .foregroundStyle(Theme.cocoaSoft)
+                        .foregroundStyle(Theme.inkSoft)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 14)
@@ -200,7 +212,7 @@ struct LessonView: View {
                         .shadow(color: color.opacity(0.5), radius: 6)
                     Text(spec.name(key: song.key))
                         .font(Theme.display(30))
-                        .foregroundStyle(Theme.cocoa)
+                        .foregroundStyle(Theme.ink)
                         .minimumScaleFactor(0.4)
                         .lineLimit(1)
                         .padding(.horizontal, 10)
@@ -210,17 +222,17 @@ struct LessonView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("\(spec.roman) · \(spec.qualityName)")
                         .font(Theme.label(15, weight: .semibold))
-                        .foregroundStyle(Theme.cocoa)
+                        .foregroundStyle(Theme.ink)
                     if let lyric = target.lyric {
                         Text("“\(lyric)”")
                             .font(.system(size: 15, weight: .medium, design: .serif))
                             .italic()
-                            .foregroundStyle(Theme.cocoa.opacity(0.85))
+                            .foregroundStyle(Theme.ink.opacity(0.85))
                     }
                     if let next = snapshot.nextTarget {
                         Text("Next: \(next.spec.name(key: song.key))")
                             .font(Theme.label(12, weight: .medium))
-                            .foregroundStyle(Theme.cocoaSoft)
+                            .foregroundStyle(Theme.inkSoft)
                     }
                 }
                 Spacer(minLength: 0)
@@ -229,7 +241,7 @@ struct LessonView: View {
             HStack(spacing: 10) {
                 handCard(title: "Left hand",
                          caption: leftFingers.chordHandDescription + (target.minor ? " · lean right" : " · upright"),
-                         fingers: leftFingers, tilt: target.minor ? 18 : 0, color: Theme.cocoa, thumbOnRight: true,
+                         fingers: leftFingers, tilt: target.minor ? 18 : 0, color: Theme.ink, thumbOnRight: true,
                          ok: flags.map { $0.degree && $0.mode })
                 handCard(title: "Right hand",
                          caption: rightCaption(target),
@@ -246,7 +258,7 @@ struct LessonView: View {
 
             Text(hint(flags))
                 .font(Theme.label(13, weight: .medium))
-                .foregroundStyle(Theme.cocoaSoft)
+                .foregroundStyle(Theme.inkSoft)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
@@ -284,10 +296,10 @@ struct LessonView: View {
                 .frame(height: 92)
             Text(title)
                 .font(Theme.label(12, weight: .semibold))
-                .foregroundStyle(Theme.cocoa)
+                .foregroundStyle(Theme.ink)
             Text(caption)
                 .font(Theme.label(11, weight: .medium))
-                .foregroundStyle(Theme.cocoaSoft)
+                .foregroundStyle(Theme.inkSoft)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -302,7 +314,7 @@ struct LessonView: View {
     }
 
     private func chip(_ text: String, ok: Bool?) -> some View {
-        let color: Color = ok == nil ? Theme.cocoaSoft : (ok == true ? Theme.sage : Theme.rose)
+        let color: Color = ok == nil ? Theme.inkSoft : (ok == true ? Theme.sage : Theme.rose)
         return HStack(spacing: 4) {
             Image(systemName: ok == true ? "checkmark.circle.fill" : (ok == nil ? "circle" : "xmark.circle.fill"))
                 .font(.system(size: 11, weight: .bold))
@@ -325,11 +337,11 @@ struct LessonView: View {
                 .foregroundStyle(Theme.rose)
             Text("Lesson complete")
                 .font(Theme.display(28))
-                .foregroundStyle(Theme.cocoa)
+                .foregroundStyle(Theme.ink)
             Text("\(snapshot.matched) of \(snapshot.total) chords played"
                  + (snapshot.skipped > 0 ? " · \(snapshot.skipped) skipped" : ""))
                 .font(Theme.label(15, weight: .medium))
-                .foregroundStyle(Theme.cocoaSoft)
+                .foregroundStyle(Theme.inkSoft)
             Button("Play it again") { model.pipeline.restartLesson() }
                 .buttonStyle(PrimaryButtonStyle())
             HStack(spacing: 8) {

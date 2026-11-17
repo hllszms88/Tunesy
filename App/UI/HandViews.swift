@@ -1,44 +1,21 @@
 import GestureCore
 import SwiftUI
 
-/// Draws the tracked hands over the camera as clean white lines and fingertip dots.
+/// Draws the tracked hands over the camera as small white dots, one per joint.
 struct HandOverlay: View {
     @ObservedObject var live: LiveState
-
-    private static let chains: [[Int]] = [
-        [0, 1, 2, 3, 4],
-        [0, 5, 6, 7, 8],
-        [5, 9, 13, 17, 0],
-        [9, 10, 11, 12],
-        [13, 14, 15, 16],
-        [17, 18, 19, 20]
-    ]
-    private static let tips: [Int] = [4, 8, 12, 16, 20]
 
     var body: some View {
         Canvas { context, size in
             let frame = live.frame
             let map = AspectFill(image: frame.imageSize, view: size)
             for hand in frame.hands where hand.count == 21 {
-                let color = Color.white
-                let points = hand.map { map.point($0) }
-
-                var bones = Path()
-                for chain in HandOverlay.chains {
-                    bones.move(to: points[chain[0]])
-                    for joint in chain.dropFirst() {
-                        bones.addLine(to: points[joint])
-                    }
-                }
-                context.stroke(bones, with: .color(color.opacity(0.75)),
-                               style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-
-                for tip in HandOverlay.tips {
-                    let p = points[tip]
-                    let halo = CGRect(x: p.x - 9, y: p.y - 9, width: 18, height: 18)
-                    context.fill(Path(ellipseIn: halo), with: .color(color.opacity(0.25)))
-                    let dot = CGRect(x: p.x - 5, y: p.y - 5, width: 10, height: 10)
-                    context.fill(Path(ellipseIn: dot), with: .color(color))
+                for joint in hand {
+                    let p = map.point(joint)
+                    let dot = CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)
+                    context.fill(Path(ellipseIn: dot.insetBy(dx: -1.5, dy: -1.5)),
+                                 with: .color(Color.black.opacity(0.12)))
+                    context.fill(Path(ellipseIn: dot), with: .color(Color.white.opacity(0.95)))
                 }
             }
         }
@@ -51,7 +28,7 @@ struct HandShapeView: View {
     let fingers: FingerState
     /// Positive leans the hand to the right.
     var tiltDegrees: Double = 0
-    var color: Color = Theme.cocoa
+    var color: Color = Theme.ink
     /// True for the left hand as you see it in the mirror view (thumb toward the middle).
     var thumbOnRight: Bool = false
 
@@ -78,7 +55,7 @@ struct HandShapeView: View {
                     ctx.fill(bar, with: .color(color))
                 } else {
                     let stub = Path(roundedRect: CGRect(x: x - 6.5, y: 54, width: 13, height: 22), cornerRadius: 6.5)
-                    ctx.stroke(stub, with: .color(Theme.cocoa.opacity(0.3)), lineWidth: 1.5)
+                    ctx.stroke(stub, with: .color(Theme.ink.opacity(0.3)), lineWidth: 1.5)
                 }
             }
 
@@ -93,7 +70,7 @@ struct HandShapeView: View {
             if fingers.thumb {
                 ctx.fill(thumb, with: .color(color))
             } else {
-                ctx.stroke(thumb, with: .color(Theme.cocoa.opacity(0.3)), lineWidth: 1.5)
+                ctx.stroke(thumb, with: .color(Theme.ink.opacity(0.3)), lineWidth: 1.5)
             }
         }
         .accessibilityHidden(true)

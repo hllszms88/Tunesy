@@ -5,10 +5,22 @@ import SwiftUI
 struct SettingsSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showHelp = false
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("Instrument", selection: $model.settings.mode) {
+                        Text("Chords").tag(InstrumentMode.chords)
+                        Text("Theremin").tag(InstrumentMode.theremin)
+                    }
+                    .pickerStyle(.segmented)
+                    Toggle("Sound", isOn: Binding(get: { !model.settings.muted },
+                                                  set: { model.settings.muted = !$0 }))
+                    Button("How to play") { showHelp = true }
+                }
+
                 Section("Key") {
                     Picker("Key", selection: $model.settings.key) {
                         ForEach(MusicalKey.allCases) { key in
@@ -114,6 +126,9 @@ struct SettingsSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showHelp) {
+            HelpSheet()
+        }
     }
 
     private func octaveLabel(_ octave: Int) -> String {
@@ -136,7 +151,7 @@ struct HelpSheet: View {
 
                     helpCard(
                         title: "Left hand picks the chord",
-                        color: Theme.cocoa,
+                        color: Theme.ink,
                         fingers: FingerState(index: true, middle: true),
                         thumbOnRight: true,
                         lines: [
