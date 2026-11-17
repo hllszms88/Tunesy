@@ -40,10 +40,16 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     private var userOffset: CGFloat = 0
     private let infoLock = NSLock()
     private var appliedAngleInfo = "—"
+    /// The upright angle learned for each camera. Session queue only.
+    private var confirmedPortraitAngle: [AVCaptureDevice.Position: CGFloat] = [:]
+    /// Whether the phone is held upright (portrait). Guarded by `orientationLock`.
+    private let orientationLock = NSLock()
+    private var heldUpright = true
 
     override init() {
         super.init()
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        updateHeldUpright()
         let center = NotificationCenter.default
         observers.append(center.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
@@ -55,6 +61,31 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         ) { [weak self] _ in
             self?.restartAfterError()
         })
+        observers.append(center.addObserver(
+            forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.updateHeldUpright()
+        })
+    }
+
+    /// Main thread. Face-up, face-down and unknown keep the previous answer.
+    private func updateHeldUpright() {
+        let upright: Bool?
+        switch UIDevice.current.orientation {
+        case .portrait: upright = true
+        case .landscapeLeft, .landscapeRight, .portraitUpsideDown: upright = false
+        default: upright = nil
+        }
+        guard let value = upright else { return }
+        orientationLock.lock()
+        heldUpright = value
+        orientationLock.unlock()
+    }
+
+    private var isHeldUpright: Bool {
+        orientationLock.lock()
+        defer { orientationLock.unlock() }
+        return heldUpright
     }
 
     deinit {
@@ -196,23 +227,31 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         configure(connection, front: position == .front)
     }
 
-    /// Session queue. Follows Apple's rotation coordinator for this camera. The app's screen
-    /// is always portrait, so new angles are only accepted while the phone is held upright.
+    /// Session queue. Learns the upright angle for this camera from Apple's rotation coordinator,
+    /// but only while the phone is held upright. The screen is always portrait, so when the phone
+    /// is tilted the picture must tilt with it rather than stay level with the horizon.
     private func setUpRotation(for device: AVCaptureDevice) {
         rotationObservation = nil
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         rotationCoordinator = coordinator
-        baseAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+        let position = device.position
+        let reading = coordinator.videoRotationAngleForHorizonLevelCapture
+        if isHeldUpright {
+            baseAngle = reading
+            confirmedPortraitAngle[position] = reading
+        } else {
+            baseAngle = confirmedPortraitAngle[position] ?? reading
+        }
         rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture,
                                                   options: [.new]) { [weak self] coordinator, _ in
-            let angle = coordinator.videoRotationAngleForHorizonLevelCapture
-            DispatchQueue.main.async {
-                guard UIDevice.current.orientation == .portrait else { return }
-                self?.sessionQueue.async {
-                    guard let self = self, self.baseAngle != angle else { return }
-                    self.baseAngle = angle
-                    self.applyOutputSettings()
-                }
+            // Let the phone settle, then accept a new angle only if it is held upright.
+            self?.sessionQueue.asyncAfter(deadline: .now() + 0.4) {
+                guard let self = self, self.rotationCoordinator === coordinator, self.isHeldUpright else { return }
+                let angle = coordinator.videoRotationAngleForHorizonLevelCapture
+                self.confirmedPortraitAngle[position] = angle
+                guard self.baseAngle != angle else { return }
+                self.baseAngle = angle
+                self.applyOutputSettings()
             }
         }
     }
