@@ -73,11 +73,11 @@ struct RootView: View {
 
             // Darken the top and bottom edges so controls stay readable over any scene.
             VStack(spacing: 0) {
-                LinearGradient(colors: [Color.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 170)
+                LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 140)
                 Spacer()
-                LinearGradient(colors: [.clear, Color.black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 260)
+                LinearGradient(colors: [.clear, Color.black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 220)
             }
             .ignoresSafeArea()
             .allowsHitTesting(false)
@@ -151,13 +151,13 @@ struct SoftCameraOverlay: View {
         ZStack {
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .opacity(0.65 * strength)
+                .opacity(0.35 * strength)
             LinearGradient(colors: [Color(red: 0.40, green: 0.34, blue: 0.78),
                                     Color(red: 0.08, green: 0.30, blue: 0.42)],
                            startPoint: .top, endPoint: .bottom)
-                .opacity(0.18 * strength)
+                .opacity(0.12 * strength)
             Color.white
-                .opacity(0.05 * strength)
+                .opacity(0.03 * strength)
         }
         .allowsHitTesting(false)
     }

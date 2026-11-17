@@ -15,7 +15,7 @@ struct AppSettings: Codable, Equatable {
     var muted: Bool = false
     var showSkeleton: Bool = true
     /// Misty look over the camera picture, 0...1.
-    var softCamera: Float = 0.6
+    var softCamera: Float = 0.3
 
     init() {}
 
