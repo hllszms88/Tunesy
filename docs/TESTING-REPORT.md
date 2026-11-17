@@ -8,6 +8,8 @@ Date: 11 November 2026. Environment: Windows 11, no Swift toolchain, no WSL, no 
   - Changes in the next build: preview orientation re-applied on every layout pass and when the session starts, with a one-time repair if frames arrive sideways; Settings → Diagnostics now shows camera frame size and preview rotation; new "Soft camera" setting (on by default); Filters tab, face tracking, colour effects and favourites removed. None of this has been tried on the device yet.
 - **17 Nov 2026, build 87338c5.** Reported: camera picture still sideways; sound plays; the correct chord box lights up for finger counts. Conclusion: tracking frames are usable, only the preview layer was misoriented.
   - Change in the next build: the on-screen picture is now the tracked frames themselves (AVSampleBufferDisplayLayer) instead of a separate preview layer. Not yet tried on the device.
+- **17 Nov 2026, build 0c69ef0.** Reported: picture still sideways with the phone upright; Diagnostics not found. Since the displayed picture is now the tracked frames, the frames themselves are sideways: the fixed 90° rotation is wrong for this iPhone's front camera.
+  - Change in the next build: rotation angle comes from `AVCaptureDevice.RotationCoordinator`; a "Rotate camera picture" button in Settings adds 90° steps as a manual fallback; Diagnostics shows the applied angle. Not yet tried on the device.
 
 ## Summary
 

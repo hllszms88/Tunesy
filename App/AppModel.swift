@@ -26,6 +26,7 @@ final class AppModel: ObservableObject {
         didSet {
             guard settings != oldValue else { return }
             settings.save()
+            camera.setRotationOffset(settings.cameraRotation)
             syncPipeline()
         }
     }
@@ -50,7 +51,9 @@ final class AppModel: ObservableObject {
         self.camera = camera
         self.audio = audio
         self.pipeline = pipeline
-        settings = AppSettings.load()
+        let savedSettings = AppSettings.load()
+        settings = savedSettings
+        camera.setRotationOffset(savedSettings.cameraRotation)
 
         // Built-in lessons, plus any extra ones shipped as Songs.json in the app bundle.
         var library = SongLibrary.builtIn

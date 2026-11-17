@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import UIKit
 
 /// Owns the capture session: camera selection, switching, and frame delivery.
 ///
@@ -30,8 +31,19 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     /// Video queue only: set once we have tried to re-rotate sideways frames.
     private var rotationRepairRequested = false
 
+    // Rotation. Apple's rotation coordinator reports the angle that makes each camera's
+    // picture upright; some iPhones' front cameras do not use the classic 90°.
+    // Session queue only.
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObservation: NSKeyValueObservation?
+    private var baseAngle: CGFloat = 90
+    private var userOffset: CGFloat = 0
+    private let infoLock = NSLock()
+    private var appliedAngleInfo = "—"
+
     override init() {
         super.init()
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         let center = NotificationCenter.default
         observers.append(center.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
@@ -81,6 +93,24 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         }
     }
 
+    /// Extra rotation chosen by the user (0, 90, 180 or 270), as a last-resort correction.
+    func setRotationOffset(_ degrees: Int) {
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            let normalized = CGFloat(((degrees % 360) + 360) % 360)
+            guard normalized != self.userOffset else { return }
+            self.userOffset = normalized
+            self.applyOutputSettings()
+        }
+    }
+
+    /// Shown in Settings → Diagnostics.
+    var rotationDescription: String {
+        infoLock.lock()
+        defer { infoLock.unlock() }
+        return appliedAngleInfo
+    }
+
     func switchCamera() {
         sessionQueue.async { [weak self] in
             guard let self = self, self.isConfigured else { return }
@@ -99,6 +129,7 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
                 self.session.addInput(newInput)
                 self.input = newInput
                 self.position = target
+                self.setUpRotation(for: device)
             } else if let previous = previous, self.session.canAddInput(previous) {
                 self.session.addInput(previous)
             }
@@ -137,6 +168,7 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
             }
             session.addInput(newInput)
             input = newInput
+            setUpRotation(for: device)
 
             output.videoSettings = [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
@@ -164,11 +196,38 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         configure(connection, front: position == .front)
     }
 
-    private func configure(_ connection: AVCaptureConnection, front: Bool) {
-        // 90° = portrait for both cameras.
-        if connection.isVideoRotationAngleSupported(90), connection.videoRotationAngle != 90 {
-            connection.videoRotationAngle = 90
+    /// Session queue. Follows Apple's rotation coordinator for this camera. The app's screen
+    /// is always portrait, so new angles are only accepted while the phone is held upright.
+    private func setUpRotation(for device: AVCaptureDevice) {
+        rotationObservation = nil
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
+        rotationCoordinator = coordinator
+        baseAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+        rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture,
+                                                  options: [.new]) { [weak self] coordinator, _ in
+            let angle = coordinator.videoRotationAngleForHorizonLevelCapture
+            DispatchQueue.main.async {
+                guard UIDevice.current.orientation == .portrait else { return }
+                self?.sessionQueue.async {
+                    guard let self = self, self.baseAngle != angle else { return }
+                    self.baseAngle = angle
+                    self.applyOutputSettings()
+                }
+            }
         }
+    }
+
+    private func configure(_ connection: AVCaptureConnection, front: Bool) {
+        let angle = (baseAngle + userOffset).truncatingRemainder(dividingBy: 360)
+        let supported = connection.isVideoRotationAngleSupported(angle)
+        if supported, connection.videoRotationAngle != angle {
+            connection.videoRotationAngle = angle
+        }
+        let info = "\(Int(baseAngle))° + \(Int(userOffset))° = \(Int(connection.videoRotationAngle))°"
+            + (supported ? "" : " (\(Int(angle))° unsupported)")
+        infoLock.lock()
+        appliedAngleInfo = info
+        infoLock.unlock()
         if connection.isVideoMirroringSupported {
             if connection.automaticallyAdjustsVideoMirroring {
                 connection.automaticallyAdjustsVideoMirroring = false

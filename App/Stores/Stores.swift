@@ -16,6 +16,8 @@ struct AppSettings: Codable, Equatable {
     var showSkeleton: Bool = true
     /// Misty look over the camera picture, 0...1.
     var softCamera: Float = 0.3
+    /// Extra picture rotation chosen by the user: 0, 90, 180 or 270.
+    var cameraRotation: Int = 0
 
     init() {}
 
@@ -35,6 +37,7 @@ struct AppSettings: Codable, Equatable {
         muted = try c.decodeIfPresent(Bool.self, forKey: .muted) ?? d.muted
         showSkeleton = try c.decodeIfPresent(Bool.self, forKey: .showSkeleton) ?? d.showSkeleton
         softCamera = try c.decodeIfPresent(Float.self, forKey: .softCamera) ?? d.softCamera
+        cameraRotation = try c.decodeIfPresent(Int.self, forKey: .cameraRotation) ?? d.cameraRotation
     }
 
     private static let storageKey = "handtone.settings.v1"

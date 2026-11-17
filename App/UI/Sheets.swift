@@ -69,6 +69,13 @@ struct SettingsSheet: View {
 
                 Section {
                     Toggle("Show hand tracking", isOn: $model.settings.showSkeleton)
+                    Button {
+                        model.settings.cameraRotation = (model.settings.cameraRotation + 90) % 360
+                    } label: {
+                        LabeledContent("Rotate camera picture") {
+                            Text(model.settings.cameraRotation == 0 ? "Auto" : "+\(model.settings.cameraRotation)°")
+                        }
+                    }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Soft camera")
                         HStack {
@@ -82,7 +89,7 @@ struct SettingsSheet: View {
                 } header: {
                     Text("Display")
                 } footer: {
-                    Text("Soft camera gives the picture a misty, gentler look. It does not affect hand tracking.")
+                    Text("If the camera picture is sideways, tap Rotate until it is upright. Soft camera gives the picture a misty, gentler look. Neither affects how well your hands are tracked.")
                 }
 
                 Section {
@@ -90,6 +97,7 @@ struct SettingsSheet: View {
                     LabeledContent("Audio buffer",
                                    value: String(format: "%.1f ms", model.audio.bufferDuration * 1000))
                     LabeledContent("Sample rate", value: "\(Int(model.audio.sampleRate)) Hz")
+                    LabeledContent("Camera rotation", value: model.camera.rotationDescription)
                     LabeledContent("Camera frame", value: "\(Int(model.live.frame.imageSize.width))×\(Int(model.live.frame.imageSize.height))")
                 } header: {
                     Text("Diagnostics")
