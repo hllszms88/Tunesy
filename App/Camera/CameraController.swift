@@ -23,10 +23,10 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     private var position: AVCaptureDevice.Position = .front
     private var isConfigured = false
     private var shouldRun = false
-    private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private var observers: [NSObjectProtocol] = []
-    /// Main thread only: whether the preview should be mirrored.
-    private var previewIsFront = true
+    /// Shows the same frames the hand tracker reads, so picture and tracking always agree.
+    private let displayLock = NSLock()
+    private weak var displayLayer: AVSampleBufferDisplayLayer?
     /// Video queue only: set once we have tried to re-rotate sideways frames.
     private var rotationRepairRequested = false
 
@@ -43,12 +43,6 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
         ) { [weak self] _ in
             self?.restartAfterError()
         })
-        // The preview layer's connection may only exist once the session runs; orient it then.
-        observers.append(center.addObserver(
-            forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main
-        ) { [weak self] _ in
-            self?.applyPreviewRotation()
-        })
     }
 
     deinit {
@@ -57,14 +51,13 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
 
     // MARK: Control
 
-    func attach(previewLayer: AVCaptureVideoPreviewLayer) {
-        self.previewLayer = previewLayer
-        previewLayer.session = session
-        previewLayer.videoGravity = .resizeAspectFill
-        sessionQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.applyPreviewSettings(front: self.position == .front)
-        }
+    /// The on-screen picture. Frames are drawn exactly as delivered: upright, and mirrored
+    /// for the front camera.
+    func attach(displayLayer: AVSampleBufferDisplayLayer) {
+        displayLayer.videoGravity = .resizeAspectFill
+        displayLock.lock()
+        self.displayLayer = displayLayer
+        displayLock.unlock()
     }
 
     func start() {
@@ -114,7 +107,6 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
             self.videoQueue.async { [weak self] in
                 self?.rotationRepairRequested = false
             }
-            self.applyPreviewSettings(front: self.position == .front)
             self.notifyPosition()
         }
     }
@@ -160,7 +152,6 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
             applyOutputSettings()
             session.commitConfiguration()
             isConfigured = true
-            applyPreviewSettings(front: position == .front)
             notifyPosition()
         } catch {
             report(error.localizedDescription)
@@ -171,27 +162,6 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
     private func applyOutputSettings() {
         guard let connection = output.connection(with: .video) else { return }
         configure(connection, front: position == .front)
-    }
-
-    private func applyPreviewSettings(front: Bool) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.previewIsFront = front
-            self.applyPreviewRotation()
-        }
-    }
-
-    /// Main thread. Safe to call often (it is called on every layout pass):
-    /// it only changes the connection when something is wrong.
-    func applyPreviewRotation() {
-        guard let connection = previewLayer?.connection else { return }
-        configure(connection, front: previewIsFront)
-    }
-
-    /// Main thread. Shown in Settings → Diagnostics.
-    var previewRotationDescription: String {
-        guard let connection = previewLayer?.connection else { return "not connected" }
-        return "\(Int(connection.videoRotationAngle))°" + (connection.isVideoMirrored ? " · mirrored" : "")
     }
 
     private func configure(_ connection: AVCaptureConnection, front: Bool) {
@@ -243,7 +213,29 @@ final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDele
                 self?.applyOutputSettings()
             }
         }
+        show(sampleBuffer)
         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
         onFrame?(pixelBuffer, time, connection.isVideoMirrored)
+    }
+
+    /// Video queue. Puts the frame on screen immediately, before any tracking work.
+    private func show(_ sampleBuffer: CMSampleBuffer) {
+        displayLock.lock()
+        let layer = displayLayer
+        displayLock.unlock()
+        guard let layer = layer else { return }
+
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0 {
+            let dictionary = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+            CFDictionarySetValue(dictionary,
+                                 Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                                 Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
+        }
+        let renderer = layer.sampleBufferRenderer
+        if renderer.status == .failed || renderer.requiresFlushToResumeDecoding {
+            renderer.flush()
+        }
+        renderer.enqueue(sampleBuffer)
     }
 }

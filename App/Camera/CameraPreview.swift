@@ -22,21 +22,16 @@ struct AspectFill {
     }
 }
 
-// MARK: - Live camera preview
+// MARK: - Live camera picture
 
+/// A view backed by a sample-buffer display layer. It shows the very frames the
+/// hand tracker analyses, so the picture, the skeleton and the music always line up.
 final class PreviewUIView: UIView {
-    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+    override class var layerClass: AnyClass { AVSampleBufferDisplayLayer.self }
 
-    var onLayout: (() -> Void)?
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        onLayout?()
-    }
-
-    var previewLayer: AVCaptureVideoPreviewLayer {
+    var displayLayer: AVSampleBufferDisplayLayer {
         // The layer class is fixed above, so this cast always succeeds.
-        return layer as! AVCaptureVideoPreviewLayer
+        return layer as! AVSampleBufferDisplayLayer
     }
 }
 
@@ -46,11 +41,7 @@ struct CameraPreview: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
         view.backgroundColor = .black
-        camera.attach(previewLayer: view.previewLayer)
-        let camera = self.camera
-        view.onLayout = { [weak camera] in
-            camera?.applyPreviewRotation()
-        }
+        camera.attach(displayLayer: view.displayLayer)
         return view
     }
 

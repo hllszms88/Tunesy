@@ -6,6 +6,8 @@ Date: 11 November 2026. Environment: Windows 11, no Swift toolchain, no WSL, no 
 
 - **17 Nov 2026, first install (build 98da421).** Built and installed via Sideloadly. Reported: camera picture sideways; camera colours unattractive, a softer/misty look preferred; filters judged too poor to keep.
   - Changes in the next build: preview orientation re-applied on every layout pass and when the session starts, with a one-time repair if frames arrive sideways; Settings → Diagnostics now shows camera frame size and preview rotation; new "Soft camera" setting (on by default); Filters tab, face tracking, colour effects and favourites removed. None of this has been tried on the device yet.
+- **17 Nov 2026, build 87338c5.** Reported: camera picture still sideways; sound plays; the correct chord box lights up for finger counts. Conclusion: tracking frames are usable, only the preview layer was misoriented.
+  - Change in the next build: the on-screen picture is now the tracked frames themselves (AVSampleBufferDisplayLayer) instead of a separate preview layer. Not yet tried on the device.
 
 ## Summary
 

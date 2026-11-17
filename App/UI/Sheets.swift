@@ -91,7 +91,6 @@ struct SettingsSheet: View {
                                    value: String(format: "%.1f ms", model.audio.bufferDuration * 1000))
                     LabeledContent("Sample rate", value: "\(Int(model.audio.sampleRate)) Hz")
                     LabeledContent("Camera frame", value: "\(Int(model.live.frame.imageSize.width))×\(Int(model.live.frame.imageSize.height))")
-                    LabeledContent("Preview rotation", value: model.camera.previewRotationDescription)
                 } header: {
                     Text("Diagnostics")
                 } footer: {
